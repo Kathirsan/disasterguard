@@ -112,3 +112,33 @@ class AggregatorResponse(BaseModel):
     reasons: List[str]
     requires_alert: bool
     status_updated: str
+
+    # --- Priority 9: Officer / Crew Dispatch Schemas ---
+class DispatchCreate(BaseModel):
+    hazard_id: int
+    crew_name: str
+    priority: Optional[str] = "HIGH"
+    instructions: Optional[str] = None
+
+class CrewAcceptRequest(BaseModel):
+    crew_notes: Optional[str] = None
+
+class CrewResolveRequest(BaseModel):
+    resolution_photo_url: str
+    resolution_notes: str
+
+class IncidentTicketResponse(BaseModel):
+    id: int
+    hazard_id: int
+    officer_id: int
+    crew_name: str
+    ticket_status: str
+    priority: str
+    instructions: Optional[str]
+    resolution_photo_url: Optional[str]
+    resolution_notes: Optional[str]
+    dispatched_at: datetime
+    resolved_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True

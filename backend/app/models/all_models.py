@@ -47,3 +47,26 @@ class HazardCheck(Base):
     created_at = Column(TIMESTAMP, server_default=func.now())
 
     hazard = relationship("Hazard", back_populates="checks")
+
+
+class IncidentTicket(Base):
+    __tablename__ = "incident_tickets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    hazard_id = Column(Integer, ForeignKey("hazards.id", ondelete="CASCADE"), nullable=False)
+    officer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    crew_name = Column(String(100), nullable=False)
+    ticket_status = Column(
+        Enum("DISPATCHED", "IN_PROGRESS", "RESOLVED"),
+        default="DISPATCHED",
+        nullable=False
+    )
+    priority = Column(Enum("LOW", "MEDIUM", "HIGH", "CRITICAL"), default="HIGH", nullable=False)
+    instructions = Column(Text, nullable=True)
+    resolution_photo_url = Column(String(255), nullable=True)
+    resolution_notes = Column(Text, nullable=True)
+    dispatched_at = Column(TIMESTAMP, server_default=func.now())
+    resolved_at = Column(TIMESTAMP, nullable=True)
+
+    hazard = relationship("Hazard")
+    officer = relationship("User")
