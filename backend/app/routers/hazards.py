@@ -2,6 +2,9 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.schemas.all_schemas import AggregatorResponse
+from app.services.aggregator import compute_aggregated_verdict
+
 from app.database import get_db
 from app.models.all_models import Hazard, User, HazardCheck
 from app.schemas.all_schemas import (
@@ -169,4 +172,72 @@ async def analyze_hazard_with_ai(hazard_id: int, db: Session = Depends(get_db)):
         "weather_match": "pass",
         "duplicate_risk": "low",
         "notes": check_entry.notes
+    }
+
+@router.post("/{hazard_id}/aggregate", response_model=AggregatorResponse)
+async def run_hazard_aggregator(
+    hazard_id: int,
+    rainfall_mm: float = 145.0,
+    river_level_m: float = 4.8,
+    db: Session = Depends(get_db)
+):
+    """
+    Executes Weather Check + Cluster Check + Image AI,
+    aggregates the signals, updates hazard status, and logs the decision.
+    """
+    hazard = db.query(Hazard).filter(Hazard.id == hazard_id).first()
+    if not hazard:
+        raise HTTPException(status_code=404, detail="Hazard not found")
+
+    # 1. Run Weather Check
+    weather_res = evaluate_weather_severity(rainfall_mm, river_level_m)
+
+    # 2. Run Spatial Cluster Check (200m)
+    cluster_res = evaluate_cluster_check(
+        db=db,
+        current_hazard_id=hazard.id,
+        lat=float(hazard.latitude),
+        lon=float(hazard.longitude),
+        radius_meters=200.0,
+        cluster_threshold=2
+    )
+
+    # 3. Fetch Image AI Verification
+    ai_res = await call_pavithar_ai_service(
+        image_url=hazard.image_url or "",
+        category=hazard.category
+    )
+
+    # 4. Synthesize via Aggregator Engine
+    aggregated = compute_aggregated_verdict(weather_res, cluster_res, ai_res)
+
+    # 5. Persist Status Transition
+    if aggregated["verdict"] == "CONFIRMED":
+        hazard.status = "verified"
+    elif aggregated["verdict"] == "REJECTED":
+        hazard.status = "rejected"
+    else:
+        hazard.status = "reported"
+
+    # 6. Audit to hazard_checks
+    check_entry = HazardCheck(
+        hazard_id=hazard.id,
+        confidence_score=aggregated["confidence"],
+        weather_match="pass" if weather_res["severity_level"] != "CRITICAL" else "warn",
+        duplicate_risk="high" if cluster_res["cluster_confirmed"] else "low",
+        notes="; ".join(aggregated["reasons"])
+    )
+    db.add(check_entry)
+    db.commit()
+    db.refresh(hazard)
+
+    return {
+        "hazard_id": hazard.id,
+        "verdict": aggregated["verdict"],
+        "confidence": aggregated["confidence"],
+        "severity": aggregated["severity"],
+        "urgency": aggregated["urgency"],
+        "reasons": aggregated["reasons"],
+        "requires_alert": aggregated["requires_alert"],
+        "status_updated": hazard.status
     }

@@ -101,3 +101,14 @@ class AIAnalysisCompleteResponse(BaseModel):
     weather_match: str
     duplicate_risk: str
     notes: str
+
+# --- Priority 8: Aggregator Schemas ---
+class AggregatorResponse(BaseModel):
+    hazard_id: int
+    verdict: str
+    confidence: float
+    severity: str
+    urgency: str
+    reasons: List[str]
+    requires_alert: bool
+    status_updated: str
