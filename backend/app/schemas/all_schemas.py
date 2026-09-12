@@ -51,3 +51,17 @@ class HazardResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# --- Case Builder Schema ---
+class UnifiedCaseResponse(BaseModel):
+    case_id: str
+    hazard_id: int
+    status: str
+    category: str
+    title: str
+    description: Optional[str]
+    evidence: dict
+    geography: dict
+    environmental_context: dict
+    cross_validation: dict
+    created_at: Optional[str]

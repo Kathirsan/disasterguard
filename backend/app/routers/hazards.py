@@ -3,8 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.all_models import Hazard, User
-from app.schemas.all_schemas import HazardCreate, HazardResponse
+from app.schemas.all_schemas import HazardCreate, HazardResponse, UnifiedCaseResponse
 from app.auth import get_current_user
+from app.services.case_builder import build_unified_case
 
 router = APIRouter(prefix="/api/hazards", tags=["Citizen Hazards"])
 
@@ -38,3 +39,11 @@ def get_hazard_by_id(hazard_id: int, db: Session = Depends(get_db)):
     if not hazard:
         raise HTTPException(status_code=404, detail="Hazard not found")
     return hazard
+
+@router.get("/{hazard_id}/case", response_model=UnifiedCaseResponse)
+def get_hazard_unified_case(hazard_id: int, db: Session = Depends(get_db)):
+    hazard = db.query(Hazard).filter(Hazard.id == hazard_id).first()
+    if not hazard:
+        raise HTTPException(status_code=404, detail="Hazard not found")
+    case_data = build_unified_case(db=db, hazard=hazard)
+    return case_data
