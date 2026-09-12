@@ -87,3 +87,73 @@ class FullSystemCheckResponse(BaseModel):
     weather_check: WeatherCheckResponse
     cluster_check: ClusterCheckResponse
     system_verdict: str
+
+# --- Priority 7: AI Detection Schemas ---
+class AIDetectionResult(BaseModel):
+    hazard: str
+    confidence: float
+    severity: str
+
+class AIAnalysisCompleteResponse(BaseModel):
+    hazard_id: int
+    new_status: str
+    ai_verdict: AIDetectionResult
+    weather_match: str
+    duplicate_risk: str
+    notes: str
+
+# --- Priority 8: Aggregator Schemas ---
+class AggregatorResponse(BaseModel):
+    hazard_id: int
+    verdict: str
+    confidence: float
+    severity: str
+    urgency: str
+    reasons: List[str]
+    requires_alert: bool
+    status_updated: str
+
+    # --- Priority 9: Officer / Crew Dispatch Schemas ---
+class DispatchCreate(BaseModel):
+    hazard_id: int
+    crew_name: str
+    priority: Optional[str] = "HIGH"
+    instructions: Optional[str] = None
+
+class CrewAcceptRequest(BaseModel):
+    crew_notes: Optional[str] = None
+
+class CrewResolveRequest(BaseModel):
+    resolution_photo_url: str
+    resolution_notes: str
+
+class IncidentTicketResponse(BaseModel):
+    id: int
+    hazard_id: int
+    officer_id: int
+    crew_name: str
+    ticket_status: str
+    priority: str
+    instructions: Optional[str]
+    resolution_photo_url: Optional[str]
+    resolution_notes: Optional[str]
+    dispatched_at: datetime
+    resolved_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+    # --- Priority 10: End-to-End Integration Schemas ---
+class EndToEndPipelineResponse(BaseModel):
+    pipeline_status: str
+    hazard_id: int
+    category: str
+    verdict: str
+    confidence: float
+    severity: str
+    urgency: str
+    reasons: List[str]
+    ticket_dispatched: bool
+    ticket_id: Optional[int] = None
+    crew_assigned: Optional[str] = None
+    notification_broadcast: str    
