@@ -1,3 +1,4 @@
+
 import sqlite3
 import os
 from app.core.database import engine, Base
@@ -23,6 +24,7 @@ def run_migration():
         ("crew_assignments", "completed_at", "DATETIME"),
     ]
 
+    
     for table, col, col_type in columns_to_add:
         try:
             cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type};")
