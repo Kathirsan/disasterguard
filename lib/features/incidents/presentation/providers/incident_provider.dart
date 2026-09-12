@@ -110,6 +110,7 @@ class IncidentProvider extends ChangeNotifier {
     }
   }
 
+ 
   void clearError() {
     _errorMessage = null;
     notifyListeners();
