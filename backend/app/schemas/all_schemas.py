@@ -51,3 +51,39 @@ class HazardResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# --- Case Builder Schema ---
+class UnifiedCaseResponse(BaseModel):
+    case_id: str
+    hazard_id: int
+    status: str
+    category: str
+    title: str
+    description: Optional[str]
+    evidence: dict
+    geography: dict
+    environmental_context: dict
+    cross_validation: dict
+    created_at: Optional[str]
+
+# --- Priority 6: System Checks Schemas ---
+class WeatherCheckResponse(BaseModel):
+    rainfall_mm: float
+    river_level_m: float
+    severity_level: str
+    alert_message: str
+
+class ClusterCheckResponse(BaseModel):
+    hazard_id: int
+    radius_meters: float
+    nearby_count: int
+    threshold_required: int
+    cluster_confirmed: bool
+    cluster_density: str
+    nearby_hazards: List[dict]
+
+class FullSystemCheckResponse(BaseModel):
+    hazard_id: int
+    weather_check: WeatherCheckResponse
+    cluster_check: ClusterCheckResponse
+    system_verdict: str
