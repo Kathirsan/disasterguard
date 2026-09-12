@@ -54,6 +54,7 @@ def run_tests():
         "email": citizen_email,
         "password": "Password123!"
     }
+   
     status, res = make_request(f"{BASE_URL}/auth/login", method="POST", data=login_payload)
     print(f"[4] Login Status: {status}")
     assert status == 200, "Login failed"
