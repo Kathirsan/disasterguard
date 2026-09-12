@@ -87,3 +87,17 @@ class FullSystemCheckResponse(BaseModel):
     weather_check: WeatherCheckResponse
     cluster_check: ClusterCheckResponse
     system_verdict: str
+
+# --- Priority 7: AI Detection Schemas ---
+class AIDetectionResult(BaseModel):
+    hazard: str
+    confidence: float
+    severity: str
+
+class AIAnalysisCompleteResponse(BaseModel):
+    hazard_id: int
+    new_status: str
+    ai_verdict: AIDetectionResult
+    weather_match: str
+    duplicate_risk: str
+    notes: str

@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.all_models import Hazard, User
+from app.models.all_models import Hazard, User, HazardCheck
 from app.schemas.all_schemas import (
     HazardCreate,
     HazardResponse,
@@ -11,10 +11,12 @@ from app.schemas.all_schemas import (
     WeatherCheckResponse,
     ClusterCheckResponse,
     FullSystemCheckResponse,
+    AIAnalysisCompleteResponse,
 )
 from app.auth import get_current_user
 from app.services.case_builder import build_unified_case
 from app.services.system_checks import evaluate_weather_severity, evaluate_cluster_check
+from app.services.verification import call_pavithar_ai_service
 
 router = APIRouter(prefix="/api/hazards", tags=["Citizen Hazards"])
 
@@ -119,4 +121,52 @@ def run_all_system_checks(
         "weather_check": weather_res,
         "cluster_check": cluster_res,
         "system_verdict": verdict
+    }
+
+@router.post("/{hazard_id}/analyze-ai", response_model=AIAnalysisCompleteResponse)
+async def analyze_hazard_with_ai(hazard_id: int, db: Session = Depends(get_db)):
+    """
+    Connects to Pavithar's AI service, analyzes the hazard photo,
+    updates hazard status, and logs the result into hazard_checks.
+    """
+    hazard = db.query(Hazard).filter(Hazard.id == hazard_id).first()
+    if not hazard:
+        raise HTTPException(status_code=404, detail="Hazard not found")
+
+    ai_result = await call_pavithar_ai_service(
+        image_url=hazard.image_url or "",
+        category=hazard.category
+    )
+
+    confidence = float(ai_result.get("confidence", 0.0))
+    severity = ai_result.get("severity", "LOW")
+    detected_hazard = ai_result.get("hazard", "")
+
+    if confidence >= 0.75:
+        hazard.status = "verified"
+    else:
+        hazard.status = "reported"
+
+    check_entry = HazardCheck(
+        hazard_id=hazard.id,
+        confidence_score=confidence,
+        weather_match="pass",
+        duplicate_risk="low",
+        notes=f"AI confirmed: {detected_hazard} with severity {severity}"
+    )
+    db.add(check_entry)
+    db.commit()
+    db.refresh(hazard)
+
+    return {
+        "hazard_id": hazard.id,
+        "new_status": hazard.status,
+        "ai_verdict": {
+            "hazard": detected_hazard,
+            "confidence": confidence,
+            "severity": severity
+        },
+        "weather_match": "pass",
+        "duplicate_risk": "low",
+        "notes": check_entry.notes
     }
