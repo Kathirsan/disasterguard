@@ -1,11 +1,20 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.models.all_models import Hazard, User
-from app.schemas.all_schemas import HazardCreate, HazardResponse, UnifiedCaseResponse
+from app.schemas.all_schemas import (
+    HazardCreate,
+    HazardResponse,
+    UnifiedCaseResponse,
+    WeatherCheckResponse,
+    ClusterCheckResponse,
+    FullSystemCheckResponse,
+)
 from app.auth import get_current_user
 from app.services.case_builder import build_unified_case
+from app.services.system_checks import evaluate_weather_severity, evaluate_cluster_check
 
 router = APIRouter(prefix="/api/hazards", tags=["Citizen Hazards"])
 
@@ -33,6 +42,13 @@ def create_hazard(
 def get_all_hazards(db: Session = Depends(get_db)):
     return db.query(Hazard).all()
 
+@router.get("/checks/weather", response_model=WeatherCheckResponse)
+def check_weather_rule(rainfall_mm: float = 145.0, river_level_m: float = 4.8):
+    """
+    Evaluates weather rule-based severity: NORMAL, WARNING, HIGH, or CRITICAL.
+    """
+    return evaluate_weather_severity(rainfall_mm, river_level_m)
+
 @router.get("/{hazard_id}", response_model=HazardResponse)
 def get_hazard_by_id(hazard_id: int, db: Session = Depends(get_db)):
     hazard = db.query(Hazard).filter(Hazard.id == hazard_id).first()
@@ -45,5 +61,62 @@ def get_hazard_unified_case(hazard_id: int, db: Session = Depends(get_db)):
     hazard = db.query(Hazard).filter(Hazard.id == hazard_id).first()
     if not hazard:
         raise HTTPException(status_code=404, detail="Hazard not found")
-    case_data = build_unified_case(db=db, hazard=hazard)
-    return case_data
+    return build_unified_case(db=db, hazard=hazard)
+
+@router.get("/{hazard_id}/checks/cluster", response_model=ClusterCheckResponse)
+def check_hazard_cluster(
+    hazard_id: int,
+    radius_meters: float = 200.0,
+    threshold: int = 3,
+    db: Session = Depends(get_db)
+):
+    hazard = db.query(Hazard).filter(Hazard.id == hazard_id).first()
+    if not hazard:
+        raise HTTPException(status_code=404, detail="Hazard not found")
+
+    result = evaluate_cluster_check(
+        db=db,
+        current_hazard_id=hazard.id,
+        lat=float(hazard.latitude),
+        lon=float(hazard.longitude),
+        radius_meters=radius_meters,
+        cluster_threshold=threshold
+    )
+    result["hazard_id"] = hazard.id
+    return result
+
+@router.get("/{hazard_id}/checks/system", response_model=FullSystemCheckResponse)
+def run_all_system_checks(
+    hazard_id: int,
+    rainfall_mm: float = 145.0,
+    river_level_m: float = 4.8,
+    db: Session = Depends(get_db)
+):
+    hazard = db.query(Hazard).filter(Hazard.id == hazard_id).first()
+    if not hazard:
+        raise HTTPException(status_code=404, detail="Hazard not found")
+
+    weather_res = evaluate_weather_severity(rainfall_mm, river_level_m)
+    cluster_res = evaluate_cluster_check(
+        db=db,
+        current_hazard_id=hazard.id,
+        lat=float(hazard.latitude),
+        lon=float(hazard.longitude),
+        radius_meters=200.0,
+        cluster_threshold=3
+    )
+    cluster_res["hazard_id"] = hazard.id
+
+    if weather_res["severity_level"] in ["CRITICAL", "HIGH"] or cluster_res["cluster_confirmed"]:
+        verdict = "PRIORITY_DISPATCH"
+    elif weather_res["severity_level"] == "WARNING":
+        verdict = "MONITOR_CLOSELY"
+    else:
+        verdict = "STANDARD_REVIEW"
+
+    return {
+        "hazard_id": hazard.id,
+        "weather_check": weather_res,
+        "cluster_check": cluster_res,
+        "system_verdict": verdict
+    }
