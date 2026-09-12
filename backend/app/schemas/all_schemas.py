@@ -142,3 +142,18 @@ class IncidentTicketResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+    # --- Priority 10: End-to-End Integration Schemas ---
+class EndToEndPipelineResponse(BaseModel):
+    pipeline_status: str
+    hazard_id: int
+    category: str
+    verdict: str
+    confidence: float
+    severity: str
+    urgency: str
+    reasons: List[str]
+    ticket_dispatched: bool
+    ticket_id: Optional[int] = None
+    crew_assigned: Optional[str] = None
+    notification_broadcast: str    
