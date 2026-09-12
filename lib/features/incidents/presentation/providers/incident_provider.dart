@@ -86,6 +86,7 @@ class IncidentProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    
     try {
       final newIncident = await _repository.createIncident(
         hazardType: hazardType,
