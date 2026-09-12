@@ -1,6 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import hazards
+from app.database import engine, Base
+from app.models import all_models  # Loads User, Hazard, etc.
+from app.routers import auth, hazards
+
+# Automatically create tables in MySQL if they don't exist
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="DisasterGuard API",
@@ -8,7 +13,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS for frontend integration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,7 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include Routers
+app.include_router(auth.router)
 app.include_router(hazards.router)
 
 @app.get("/", tags=["Health Check"])
