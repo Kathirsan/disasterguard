@@ -6,6 +6,7 @@ import '../../data/repositories/incident_repository.dart';
 class IncidentProvider extends ChangeNotifier {
   final IncidentRepository _repository;
 
+  
   List<IncidentModel> _myIncidents = [];
   List<IncidentModel> _nearbyIncidents = [];
   IncidentModel? _selectedIncident;
